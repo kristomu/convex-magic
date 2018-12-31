@@ -1,0 +1,31 @@
+The billiard walk algorithm works like this:
+
+	1. Start at some point x_0 in the interior of the region Q.
+	2. Set length_0 = -tau * log nu, where nu is random on 0..1 and tau
+		is an input parameter. Let length_cur = length_0, and set the
+		reflections counter r_count to 0.
+	3. Pick a random direction d uniformly distributed on a unit 
+		hypersphere. (Can be done by Gaussian sampling)
+	4. Follow the direction from x_0 until either a distance of length
+		length_cur has been traversed, or the ray meets an edge of
+		Q. Let the point reached be x_next.
+	4a. If x_next is in the interior (i.e. we've covered a distance of
+		length_cur), return x_next and go to 2 with x_next as
+		x_0.
+	5. Otherwise, subtract length_0 by the length traversed.
+		Let s be the internal normal of the boundary, normalized
+		so ||s|| = 1. Let d = d - 2<d, s> * s, and update 
+		x_0 to the current position.
+	6. Increment the reflections counter r_count. If it exceeds R (an input
+		parameter), go to 2. Otherwise go to 4.
+
+An empirical choice of tau is ~= diameter Q. (We can get this by determining
+the Chebyshev center and the radius of the largest hypersphere centered on the
+CS and contained in the set.)
+	Or not. Apparently here diam Q = max x,y in Q: d(x, y), i.e. distance 
+	between two furthest points.
+	"A Practical Approach for Computing the Diameter of a Point-Set". Note
+	that the diameter must be d(v_1, v_2) for some vertices v_1, v_2, which
+	gives a worst case O(n^2) algorithm.
+
+We can let R = 10n where n is the dimensionality of the polytope.

@@ -1,0 +1,61 @@
+Line ray given by initial point (x_p) and vector (x_v).
+
+Polytope given by Ax >= b
+
+Functions:
+	We want to find out where the line ray intersects the polytope.
+	We want to know if a given point is inside the polytope or not.
+
+For billiard sampling:
+	Given an initial ray, we want to follow this ray for length x and
+	return where we end up. (See billiard sampling caveats for restart
+	etc).
+
+
+Determining whether the point is inside the polytope is easy, if we consider
+"on the edge" to be inside. The point is given by a vector x, and we simply
+check if Ax >= b.
+
+Finding out where the line ray intersects the polytope: the easy way is to
+calculate the distance to each edge. The parametric equation for the ray is
+
+	x_k = x_p + k * x_v
+
+x_k meets the first half-plane where
+	x_k * a_0 = b_0
+
+i.e. to solve for k:
+	(x_p + k * x_v) * a_0 = b_0
+
+	x_p * a_0 + k * x_v * a_0 = b_0
+
+	k * x_v * a_0 = b_0 - x_p * a_0
+	k = (b_0 - x_p * a_0) / (x_v * a_0)
+
+	(If x_v * a_0 is zero, then x_v is parallel to half-plane 0 and we'll
+	 never hit it. In other words, we'll hit it at infinity, which is what
+	 the division by zero would return.)
+
+We can then loop through every row of A to find the edge with the least nonnegative value of k. The intersection point is then x_p + k * x_v and we can easily
+get the ordinary L2 distance.
+
+This will be inside the polytope because any point that hits an edge will hit
+some half-plane. Furthermore, if it hits an edge and doesn't pass it, it will
+pass no other half-plane, i.e. least value of k.
+	(Strictly speaking, I will have to show that k is monotone in l2 distance, but this can be done by considering k as the radius of a ball centered on 
+x_p for all possible values of x_v.)
+
+This naive solution is O(dn) - potentially O(d) dot products, each of which
+takes O(n) time. Optimize later if needed.
+
+A little devil in the details snag: if k = 0, then we need to figure out if
+increasing k gets us away from the edge into the polytope, or out of the 
+polytope.
+
+Differentiate
+	(x_p + k * x_v) * a_0 - b_0
+
+wrt k. If the derivative is < 0, then increasing k will make the LHS smaller
+than b_0, which is acceptable. Otherwise it is not.
+
+Since this is a linear term, it's pretty easy. The derivative is x_v * a_0.
