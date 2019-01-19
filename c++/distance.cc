@@ -45,17 +45,19 @@ std::pair<double, Eigen::VectorXd> mixed_program(
 	const Eigen::VectorXd & c, const std::vector<bool> & is_binary,
 	bool verbose) {
 
+	bool needs_integer_step = false;
+
 	size_t A_size = A.rows() * A.cols();
 
 	// A in sparse representation
 	int row_idx[A_size], col_idx[A_size];
 	double value[A_size];
 
-	glp_prob *lp;
-	lp = glp_create_prob();
-	glp_set_prob_name(lp, "eigen_lp");
-	glp_set_obj_dir(lp, GLP_MIN);
-	glp_add_rows(lp, A.rows());
+	glp_prob *mip;
+	mip = glp_create_prob();
+	glp_set_prob_name(mip, "eigen_mip");
+	glp_set_obj_dir(mip, GLP_MIN);
+	glp_add_rows(mip, A.rows());
 	if (!verbose) {
 		glp_term_out(GLP_OFF);			// suppress output 
 	}
@@ -66,21 +68,23 @@ std::pair<double, Eigen::VectorXd> mixed_program(
 	for (i = 0; i < A.rows(); ++i) {
 		rowname[2] = i + '0';
 
-		glp_set_row_name(lp, i+1, rowname);
-  		glp_set_row_bnds(lp, i+1, GLP_UP, 0.0, b(i));
+		glp_set_row_name(mip, i+1, rowname);
+  		glp_set_row_bnds(mip, i+1, GLP_UP, 0.0, b(i));
 	}
 
 	// set x and c
 	char colname[] = "x_0";
-	glp_add_cols(lp, A.cols());
+	glp_add_cols(mip, A.cols());
 	for (i = 0; i < A.cols(); ++i) {
 		colname[2] = i + '0';
-		glp_set_col_name(lp, i+1, colname);
-		glp_set_col_bnds(lp, i+1, GLP_FR, 0.0, 0.0);
+		glp_set_col_name(mip, i+1, colname);
+		glp_set_col_bnds(mip, i+1, GLP_FR, 0.0, 0.0);
+		glp_set_obj_coef(mip, i+1, c(i));
+
 		if (is_binary[i]) {
-			glp_set_col_kind(lp, i+1, GLP_BV);
+			needs_integer_step = true;
+			glp_set_col_kind(mip, i+1, GLP_BV);
 		}
-		glp_set_obj_coef(lp, i+1, c(i));
 	}
 
 	// set A
@@ -99,18 +103,27 @@ std::pair<double, Eigen::VectorXd> mixed_program(
 	}
 
 	// load and solve
-	glp_load_matrix(lp, i, row_idx, col_idx, value);
-	glp_simplex(lp, NULL); // solve the LP
-	glp_intopt(lp, NULL); // solve the LP
+	glp_load_matrix(mip, i, row_idx, col_idx, value);
+	if (glp_simplex(mip, NULL) != 0) {		// solve the LP
+		throw std::runtime_error("mixed_program: could not solve LP!");
+	}
+
+	// solve the integer program if needed
+	if (needs_integer_step) {
+		if (glp_intopt(mip, NULL) != 0) {
+			throw std::runtime_error("mixed_program: could not refine LP\
+				to MIP!");
+		}
+	}
 
 	// return value at optimal point, and that point.
 	Eigen::VectorXd x_opt(A.cols());
 
 	for (i = 0; i < A.cols(); ++i) {
-		x_opt(i) = glp_get_col_prim(lp, i+1);  		
+		x_opt(i) = glp_mip_col_val(mip, i+1);  		
 	}
 
-	double z = glp_mip_obj_val(lp);
+	double z = glp_mip_obj_val(mip);
 
 	return std::pair<double, Eigen::VectorXd>(z, x_opt);
 }
@@ -158,7 +171,12 @@ std::pair<double, Eigen::VectorXd> mixed_program(
 // distance, and doing leximax with integer programming without numerical
 // precision issues is hard.
 
-double get_diameter(const polytope & poly_in, double M) {
+struct diameter_coords {
+	Eigen::VectorXd first_point;
+	Eigen::VectorXd second_point;
+};
+
+diameter_coords get_extreme_coords(const polytope & poly_in, double M) {
 
 	int n = poly_in.A.cols(), m = poly_in.A.rows();
 
@@ -209,24 +227,60 @@ double get_diameter(const polytope & poly_in, double M) {
 	for (int i = prog_cols-n; i < prog_cols; ++i) { binaries[i] = true;}
 
 	std::pair<double, Eigen::VectorXd> output = mixed_program(diam_prog,
-		diam_b, diam_c, binaries, true);
+		diam_b, diam_c, binaries, false);
+
+	// Split up result from the MIP solver into the actual coordinates.
+	diameter_coords coords;
+	coords.first_point = output.second.block(0, 0, n, 1);
+	coords.second_point = output.second.block(n, 0, n, 1);
 	
-	// Need to negate sign because we're minimizing the negative of the
-	// distance.
-	return -output.first;
+	return coords;
 }
 
+double get_l1_diameter(const polytope & poly_in, double M) {
+
+	diameter_coords coords = get_extreme_coords(poly_in, M);
+
+	return (coords.first_point - coords.second_point).lpNorm<1>();
+}
+
+// Get a lower bound on the l2 maximum-distance diameter.
+double get_l2_diameter_lb(const polytope & poly_in, double M) {
+	diameter_coords coords = get_extreme_coords(poly_in, M);
+
+	// Both of these are lower bounds, and we choose the greater of the 
+	// two.
+
+	// Calculate the l2 distance between the extreme points optimizing
+	// l1 distance.
+	double one = (coords.first_point - coords.second_point).lpNorm<2>();
+
+	// Use the equivalence of lp norms: ||x||_1 <= sqrt(n) * ||x||_2
+	double two = (coords.first_point - coords.second_point).lpNorm<1>() /
+		sqrt(coords.first_point.cols());
+
+	return std::max(one, two);
+}
 
 main() {
 	int dimension = 2;
 	polytope simplex = get_simplex(dimension);
 
-	double l_1_diam = get_diameter(simplex, 1000);
+	double l_1_diam = get_l1_diameter(simplex, 1000);
 	double should_be_diam = 2;
 
 	if (should_be_diam == l_1_diam) {
 		std::cout << "Test PASS" << std::endl;
 	} else {
-		std::cout << "Test FAIL" << std::endl;
+		std::cout << "Test FAIL (" << l_1_diam << ")" << std::endl;
+	}
+
+	double l_2_diam = get_l2_diameter_lb(simplex, 1000);
+	double should_be = sqrt(2);
+
+	if (should_be_diam == l_2_diam) {
+		std::cout << "Test PASS" << std::endl;
+	} else {
+		std::cout << "Test FAIL (" << l_1_diam << ")" << std::endl;
 	}
 }
