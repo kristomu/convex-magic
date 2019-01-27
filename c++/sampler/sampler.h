@@ -1,5 +1,10 @@
 #pragma once
 
+// An implementation of the billiard walk algorithm given in
+
+// GRYAZINA, Elena; POLYAK, Boris. Random sampling: Billiard walk algorithm.
+// European Journal of Operational Research, 2014, 238.2: 497-504.
+
 #include <iostream>
 #include <eigen3/Eigen/Dense>
 #include <glpk.h>
@@ -38,7 +43,8 @@ template<typename T> class billiard_sampler {
 			double max_distance, int max_reflections) const;
 
 		void update_properties() {
-			// TODO: Make l2 return a bound.
+			// TODO: Make this function return a lower bound parameterized
+			// by time we want to spend solving the MIP.
 			diameter = polytope_distance().get_l2_diameter_lb(
 				polytope_to_sample);
 			//diameter = 80;
@@ -48,7 +54,7 @@ template<typename T> class billiard_sampler {
 		}
 
 	public:
-		ray billiard_walk(const Eigen::VectorXd & initial_point, 
+		ray billiard_walk(const Eigen::VectorXd & initial_point,
 			double tau_distance, int max_reflections, int max_retries);
 
 		// Defaults as in the paper, and with max_retries = 100.
@@ -127,15 +133,15 @@ template<typename T> halfplane_result billiard_sampler<T>::get_closest_halfplane
 			halfplane_idx = i;
 		}
 
-		// If we're within epsilon distance, we're at an edge. The ray may 
-		// be pointing out of the polytope or into it. If it's pointing out 
+		// If we're within epsilon distance, we're at an edge. The ray may
+		// be pointing out of the polytope or into it. If it's pointing out
 		// of the polytope, then we can't travel any distance without moving
 		// out of bounds, and so billiard sampling needs to reflect instead.
 
-		// We're traveling out of the polytope if the derivative of 
-		// (x_p + dist * x_v) * a[i] - b[i] wrt dist is positive. The 
+		// We're traveling out of the polytope if the derivative of
+		// (x_p + dist * x_v) * a[i] - b[i] wrt dist is positive. The
 		// derivative is precisely travel_magnitude, and so we get...
-		
+
 		if (dist <= dist_epsilon && travel_magnitude > 0) {
 			out.colliding = true;
 			out.halfplane_idx = i;
@@ -151,7 +157,7 @@ template<typename T> halfplane_result billiard_sampler<T>::get_closest_halfplane
 
 	out.colliding = false;
 	out.distance = dist_record;
-	out.halfplane_idx = halfplane_idx;	
+	out.halfplane_idx = halfplane_idx;
 
 	return out;
 }
@@ -202,7 +208,7 @@ template<typename T> bool billiard_sampler<T>::billiard_walk_internal(const poly
 }
 
 template<typename T> ray billiard_sampler<T>::billiard_walk(
-	const Eigen::VectorXd & initial_point, double tau_distance, 
+	const Eigen::VectorXd & initial_point, double tau_distance,
 	int max_reflections, int max_retries) {
 
 	int dimension = polytope_to_sample.get_dimension();
@@ -215,7 +221,7 @@ template<typename T> ray billiard_sampler<T>::billiard_walk(
 
 		double max_distance = -tau_distance * log(drand48());
 
-		if (billiard_walk_internal(polytope_to_sample, candidate, 
+		if (billiard_walk_internal(polytope_to_sample, candidate,
 			max_distance, max_reflections)) {
 
 			return candidate; // it has now been updated.
@@ -228,7 +234,7 @@ template<typename T> ray billiard_sampler<T>::billiard_walk(
 
 template<typename T> Eigen::VectorXd billiard_sampler<T>::billiard_walk() {
 
-	current_ray = billiard_walk(current_ray.orig, diameter, 
+	current_ray = billiard_walk(current_ray.orig, diameter,
 		10 * polytope_to_sample.get_dimension(), 100);
 
 	return current_ray.orig;
