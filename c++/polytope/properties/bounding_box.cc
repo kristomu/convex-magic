@@ -39,9 +39,6 @@ double polytope_bounding_box::get_max_axis_length(
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> box = get_bounding_box(
 		poly_in);
 
-	std::cout << "Bounding box:\n";
-	std::cout << box.second-box.first << std::endl;
-
 	// Every value will be nonnegative, so the l_inf norm is the maximum
 	// element, which gives the length of the bounding box along the
 	// widest axis.
@@ -53,7 +50,7 @@ double polytope_bounding_box::get_max_axis_length(
 main() {
 	simplex u_simplex(2);
 
-	std::pair<Eigen::VectorXd, Eigen::VectorXd> box = 
+	std::pair<Eigen::VectorXd, Eigen::VectorXd> box =
 		polytope_bounding_box().get_bounding_box(u_simplex);
 
 	std::pair<Eigen::Vector2d, Eigen::Vector2d> should_be;

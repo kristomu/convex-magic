@@ -12,7 +12,7 @@
 #include "../polytope/polytope.h"
 #include "../polytope/simplex.h"
 
-main() {
+int main() {
 	int dimension = 2;
 
 	simplex u_simplex(dimension);
@@ -44,6 +44,8 @@ main() {
 
 	std::cout << "Num below: " << num_below << " and above: " << num_above
 		<< std::endl;
+
+	return 0;
 }
 
 #endif

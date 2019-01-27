@@ -47,8 +47,8 @@ template<typename T> class billiard_sampler {
 			// by time we want to spend solving the MIP.
 			diameter = polytope_distance().get_l2_diameter_lb(
 				polytope_to_sample);
-			//diameter = 80;
-			// Set the initial starting position the Chebyshev center
+
+			// Set the starting position to the Chebyshev center
 			current_ray.orig = polytope_center().get_center(
 				polytope_to_sample);
 		}
