@@ -20,6 +20,8 @@ std::pair<double, Eigen::VectorXd> polytope::mixed_program(
 
 	size_t A_size = get_num_halfplanes() * get_dimension();
 
+	assert(c.size() == get_dimension());
+
 	// A in sparse representation
 	int row_idx[A_size], col_idx[A_size];
 	double value[A_size];
