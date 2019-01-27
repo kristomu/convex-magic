@@ -14,20 +14,41 @@
 // The maximum diameter is used to improve mixing times for the billiard
 // walk.
 
-// TODO: Fix redundancy (get_simplex and linear_program).
-
 typedef std::pair<Eigen::VectorXd, Eigen::VectorXd> diameter_coords;
 
 class polytope_distance {
+	private:
+		bool do_linear_relaxation;
+
+		diameter_coords get_extreme_coords(const polytope & poly_in,
+			const Eigen::VectorXd & M_vec, bool linear_relaxation) const;
 
 	public:
-		diameter_coords get_extreme_coords(const polytope & poly_in, 
-			double M) const;
+		void set_linear_relaxation(bool use_relaxation) {
+			do_linear_relaxation = use_relaxation;
+		}
 
-		double get_l1_diameter(const polytope & poly_in, double M) const;
+		polytope_distance(bool use_relaxation) {
+			set_linear_relaxation(use_relaxation);
+		}
 
-		double get_l2_diameter_lb(const polytope & poly_in, 
-			double M) const;
+		polytope_distance() : polytope_distance(false) {}
+
+		diameter_coords get_extreme_coords(const polytope & poly_in,
+			const Eigen::VectorXd & M_vec) const;
+		diameter_coords get_extreme_coords(const polytope & poly_in,
+			double M) const {
+			int n = poly_in.get_A().cols();
+
+			return get_extreme_coords(poly_in,
+				Eigen::MatrixXd::Constant(n, 1, M));
+		}
+
+		double get_l1_diameter(const polytope & poly_in,
+			const Eigen::VectorXd & M_vec) const;
+
+		double get_l2_diameter_lb(const polytope & poly_in,
+			const Eigen::VectorXd & M_vec) const;
 
 		// Using bounding boxes to infer M.
 

@@ -33,21 +33,27 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> polytope_bounding_box::
 	return std::pair<Eigen::VectorXd, Eigen::VectorXd>(x_min, x_max);
 }
 
-double polytope_bounding_box::get_max_axis_length(
+Eigen::VectorXd polytope_bounding_box::get_axis_lengths(
 	const polytope & poly_in) const {
 
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> box = get_bounding_box(
 		poly_in);
 
+	return box.second - box.first;
+}
+
+double polytope_bounding_box::get_max_axis_length(
+	const polytope & poly_in) const {
+
 	// Every value will be nonnegative, so the l_inf norm is the maximum
 	// element, which gives the length of the bounding box along the
 	// widest axis.
-	return (box.second-box.first).lpNorm<Eigen::Infinity>();
+	return get_axis_lengths(poly_in).lpNorm<Eigen::Infinity>();
 }
 
 #ifdef TEST_BB
 
-main() {
+int main() {
 	simplex u_simplex(2);
 
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> box =
@@ -69,6 +75,8 @@ main() {
 	} else {
 		std::cout << "Test FAIL" << std::endl;
 	}
+
+	return 0;
 }
 
 #endif

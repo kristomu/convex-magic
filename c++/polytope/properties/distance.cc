@@ -29,8 +29,8 @@
 // subject to:
 //
 //	for i = 1...n
-//		abs_i - M * (1 - ind_abs.i) <= x_i - y_i	(1)
-//		abs_i - M * ind_abs.i <= y_i - x_i			(2)
+//		abs_i - M_i * (1 - ind_abs.i) <= x_i - y_i	(1)
+//		abs_i - M_i * ind_abs.i <= y_i - x_i		(2)
 //		abs_i >= 0									(3)
 //		ind_abs_i >= 0 binary						(4)
 //
@@ -39,7 +39,7 @@
 
 // or in matrix form:
 
-// x^T   = x_1 .. x_n | y_1 .. y_n | abs_1 .. abs_n | ia_1 ... ia_n || 
+// x^T   = x_1 .. x_n | y_1 .. y_n | abs_1 .. abs_n | ia_1 ... ia_n ||
 //																		b
 //																		=
 //
@@ -57,8 +57,8 @@
 // (6)       0        |      A     |        0       |        0      ||  b
 //         -----------+------------+----------------+---------------++
 
-// M must be larger than any possible x_i - y_i. In practice we just use
-// some really large value.
+// M_i must be larger than any possible x_i - y_i; precisely, at least twice
+// as large as the maximum x_i - y_i. (See get_l1_diameter for explanation.)
 
 // This can also be used to maximize the l_infinity diameter of A without
 // requiring integer programming, by maximizing max i abs.i, but we don't
@@ -67,9 +67,12 @@
 // precision issues is hard.
 
 diameter_coords polytope_distance::get_extreme_coords(
-	const polytope & poly_in, double M) const {
+	const polytope & poly_in, const Eigen::VectorXd & M_vec,
+	bool linear_relaxation) const {
 
 	int n = poly_in.get_A().cols(), m = poly_in.get_A().rows();
+
+	assert(M_vec.rows() == n);
 
 	int prog_rows = 4 * n + 2 * m; // for (1)-(4) and (5) and (6) resp.
 	int prog_cols = 4 * n;
@@ -82,14 +85,14 @@ diameter_coords polytope_distance::get_extreme_coords(
 	diam_prog.block(0, 0, n, n) = -Eigen::MatrixXd::Identity(n, n);
 	diam_prog.block(0, n, n, n) = Eigen::MatrixXd::Identity(n, n);
 	diam_prog.block(0, 2*n, n, n) = Eigen::MatrixXd::Identity(n, n);
-	diam_prog.block(0, 3*n, n, n) = M * Eigen::MatrixXd::Identity(n, n);
+	diam_prog.block(0, 3*n, n, n) = M_vec.asDiagonal();
 	// Column vector
-	diam_b.block(0, 0, n, 1) = Eigen::MatrixXd::Constant(n, 1, M);
+	diam_b.block(0, 0, n, 1) = M_vec;
 	// (2)
 	diam_prog.block(n, 0, n, n) = Eigen::MatrixXd::Identity(n, n);
 	diam_prog.block(n, n, n, n) = -Eigen::MatrixXd::Identity(n, n);
 	diam_prog.block(n, 2*n, n, n) = Eigen::MatrixXd::Identity(n, n);
-	diam_prog.block(n, 3*n, n, n) = -M * Eigen::MatrixXd::Identity(n, n);
+	diam_prog.block(n, 3*n, n, n) = -1 * M_vec.asDiagonal();
 	diam_b.block(n, 0, n, 1) = Eigen::MatrixXd::Constant(n, 1, 0);
 	// (3)
 	diam_prog.block(2*n, 0, n, n) = Eigen::MatrixXd::Zero(n, n);
@@ -121,33 +124,47 @@ diameter_coords polytope_distance::get_extreme_coords(
 	simple_polytope diameter_prog_polytope(diam_prog, diam_b);
 
 	// be verbose. (TODO: Change this later, once I've got the IP to be
-	// faster.
-	std::pair<double, Eigen::VectorXd> output = diameter_prog_polytope.
-		mixed_program(diam_c, binaries, true);
+	// faster, if that's doable).
+	std::pair<double, Eigen::VectorXd> output;
+
+	// Also TODO: Find out why integer programming triggers when we run
+	// linear_program() on this particular problem.
+
+	if (linear_relaxation) {
+		 output = diameter_prog_polytope.linear_program(diam_c, false);
+	} else {
+		output = diameter_prog_polytope.mixed_program(diam_c, binaries, true);
+	}
 
 	// Split up result from the MIP solver into the actual coordinates.
 	diameter_coords coords;
 	coords.first = output.second.block(0, 0, n, 1);
 	coords.second = output.second.block(n, 0, n, 1);
-	
+
 	return coords;
 }
 
-double polytope_distance::get_l1_diameter(const polytope & poly_in, 
-	double M) const {
+diameter_coords polytope_distance::get_extreme_coords(
+	const polytope & poly_in, const Eigen::VectorXd & M_vec) const {
 
-	diameter_coords coords = get_extreme_coords(poly_in, M);
+	return get_extreme_coords(poly_in, M_vec, do_linear_relaxation);
+}
+
+double polytope_distance::get_l1_diameter(const polytope & poly_in,
+	const Eigen::VectorXd & M_vec) const {
+
+	diameter_coords coords = get_extreme_coords(poly_in, M_vec);
 
 	return (coords.first - coords.second).lpNorm<1>();
 }
 
 // Get a lower bound on the l2 maximum-distance diameter.
-double polytope_distance::get_l2_diameter_lb(const polytope & poly_in, 
-	double M) const {
+double polytope_distance::get_l2_diameter_lb(const polytope & poly_in,
+	const Eigen::VectorXd & M_vec) const {
 
-	diameter_coords coords = get_extreme_coords(poly_in, M);
+	diameter_coords coords = get_extreme_coords(poly_in, M_vec);
 
-	// Both of these are lower bounds, and we choose the greater of the 
+	// Both of these are lower bounds, and we choose the greater of the
 	// two.
 
 	// Calculate the l2 distance between the extreme points optimizing
@@ -167,37 +184,39 @@ double polytope_distance::get_l1_diameter(
 	// M is used in a constraint of the form
 	// abs_i - M * (1 - ind_abs.i) <= x_i - y_i
 	// we want M to inactivate the abs_i constraint entirely when ind_abs
-	// is zero. 
-	// To do so in the worst case, we must assume that x_i - y_ is 
-	// -max_axis_length and that abs_i can take a value up to 
-	// max_axis_length from somewhere else. 
+	// is zero.
+	// To do so in the worst case, we must assume that x_i - y_ is
+	// -max_axis_length and that abs_i can take a value up to
+	// max_axis_length from somewhere else.
 	// Thus, to be entirely inactive,  we must have
 	// min_axis_length - X <= -min_axis_length,
 	// which has the solution X = 2 * min_axis_length. That's why the
 	// factor of 2 appears below.
 
-	double M = 2 * polytope_bounding_box().get_max_axis_length(poly_in);
+	Eigen::VectorXd M_vec = 2 * polytope_bounding_box().get_axis_lengths(
+		poly_in);
 
-	return get_l1_diameter(poly_in, M);
+	return get_l1_diameter(poly_in, M_vec);
 }
 
 double polytope_distance::get_l2_diameter_lb(
 	const polytope & poly_in) const {
 
-	double M = 2 * polytope_bounding_box().get_max_axis_length(poly_in);
+	Eigen::VectorXd M_vec = 2 * polytope_bounding_box().get_axis_lengths(
+		poly_in);
 
-	return get_l2_diameter_lb(poly_in, M);
+	return get_l2_diameter_lb(poly_in, M_vec);
 }
 
 #ifdef TEST
 
-main() {
+int main() {
 	int dimension = 2;
 	simplex u_simplex(dimension);
 
-	polytope_distance to_test;
+	polytope_distance to_test(false);
 
-	double l_1_diam = to_test.get_l1_diameter(u_simplex, 1000);
+	double l_1_diam = to_test.get_l1_diameter(u_simplex);
 	double should_be_diam = 2;
 
 	if (should_be_diam == l_1_diam) {
@@ -206,7 +225,7 @@ main() {
 		std::cout << "Test FAIL (" << l_1_diam << ")" << std::endl;
 	}
 
-	double l_2_diam = to_test.get_l2_diameter_lb(u_simplex, 1000);
+	double l_2_diam = to_test.get_l2_diameter_lb(u_simplex);
 	double should_be = sqrt(2);
 
 	if (should_be_diam == l_2_diam) {
@@ -234,6 +253,8 @@ main() {
 	} else {
 		std::cout << "Test FAIL (" << l_2_diam << ")" << std::endl;
 	}
+
+	return 0;
 }
 
 #endif

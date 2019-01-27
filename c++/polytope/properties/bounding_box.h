@@ -21,5 +21,6 @@ class polytope_bounding_box {
 	public:
 		std::pair<Eigen::VectorXd, Eigen::VectorXd> get_bounding_box(
 			const polytope & poly_in) const;
+		Eigen::VectorXd get_axis_lengths(const polytope & poly_in) const;
 		double get_max_axis_length(const polytope & poly_in) const;
 };

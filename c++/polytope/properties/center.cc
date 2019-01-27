@@ -5,10 +5,10 @@
 
 // Calculating the Chebyshev center:
 
-// The Chebyshev center x_c is the center of the largest ball that fits 
+// The Chebyshev center x_c is the center of the largest ball that fits
 // inside the polytope. Call its radius r.
 
-// For a half-plane given by A_i, the distance from x_c to A_i is at least 
+// For a half-plane given by A_i, the distance from x_c to A_i is at least
 // r if
 
 // sup             <A_i, x_c> + <A_i, u>   <= b_i
@@ -38,7 +38,7 @@
 // Augment the A matrix of a polytope, producing A_*, so that the linear
 // program max x s.th. A_*x <= b provides the radius of the maximum-radius
 // ball that can be contained inside the polytope Ax <= b, and the
-// optimal point consists of the coordinates of the center of that ball 
+// optimal point consists of the coordinates of the center of that ball
 // (as well as its radius r).
 
 Eigen::MatrixXd polytope_center::chebyshev_augment(
@@ -47,7 +47,7 @@ Eigen::MatrixXd polytope_center::chebyshev_augment(
 	// Get each polytope row's l2 norm into a vector.
 
 	Eigen::VectorXd radius_weight = A.rowwise().norm();
-	
+
 	Eigen::MatrixXd augmented_A(A.rows(), A.cols()+1);
 	// Add A
 	augmented_A.block(0, 0, A.rows(), A.cols()) = A;
@@ -64,7 +64,7 @@ simple_polytope polytope_center::chebyshev_augment(
 	return simple_polytope(chebyshev_augment(poly_in.get_A()), poly_in.get_b());
 }
 
-std::pair<double, Eigen::VectorXd> 
+std::pair<double, Eigen::VectorXd>
 	polytope_center::get_chebyshev_center_w_radius(
 	const polytope & poly_in) const {
 
@@ -74,7 +74,7 @@ std::pair<double, Eigen::VectorXd>
 	Eigen::VectorXd c = Eigen::VectorXd::Zero(poly_in.get_A().
 		cols()+1);
 	c[poly_in.get_A().cols()] = -1;
-	
+
 	std::pair<double, Eigen::VectorXd> out =
 		chebyshev_augment(poly_in).linear_program(c, false);
 
@@ -88,7 +88,7 @@ std::pair<double, Eigen::VectorXd>
 
 #ifdef TEST
 
-main() {
+int main() {
 	int dimension = 2;
 	simplex u_simplex(dimension);
 	polytope_center to_test;
@@ -102,6 +102,8 @@ main() {
 	} else {
 		std::cout << "Test FAIL" << initial_point << std::endl;
 	}
+
+	return 0;
 }
 
 #endif

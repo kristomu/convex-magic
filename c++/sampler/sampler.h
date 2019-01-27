@@ -42,11 +42,16 @@ template<typename T> class billiard_sampler {
 		bool billiard_walk_internal(const polytope & poly_in, ray & ray_in,
 			double max_distance, int max_reflections) const;
 
-		void update_properties() {
-			// TODO: Make this function return a lower bound parameterized
+		// quick_diameter_bounds determines whether to use a linear
+		// relaxation when calculating the furthest-distance diameter.
+		// For high dimensions, quick_diameter_bounds=true is highly
+		// recommended, though it may make mixing times slower, because
+		// the MIP takes too long time to solve.
+		void update_properties(bool quick_diameter_bounds) {
+			// TODO? Make this function return a lower bound parameterized
 			// by time we want to spend solving the MIP.
-			diameter = polytope_distance().get_l2_diameter_lb(
-				polytope_to_sample);
+			diameter = polytope_distance(quick_diameter_bounds).
+				get_l2_diameter_lb(polytope_to_sample);
 
 			// Set the starting position to the Chebyshev center
 			current_ray.orig = polytope_center().get_center(
@@ -65,8 +70,9 @@ template<typename T> class billiard_sampler {
 			update_properties();
 		}
 
-		billiard_sampler(T polytope_in) : polytope_to_sample(polytope_in) {
-			update_properties();
+		billiard_sampler(T polytope_in, bool quick_diameter_bounds) :
+			polytope_to_sample(polytope_in) {
+			update_properties(quick_diameter_bounds);
 		}
 
 		Eigen::VectorXd get_current_point() const {

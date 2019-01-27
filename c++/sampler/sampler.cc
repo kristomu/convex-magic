@@ -16,7 +16,7 @@ int main() {
 	int dimension = 2;
 
 	simplex u_simplex(dimension);
-	billiard_sampler<simplex> simplex_walk(u_simplex);
+	billiard_sampler<simplex> simplex_walk(u_simplex, false);
 
 	Eigen::VectorXd current_point;
 
