@@ -69,7 +69,7 @@ Eigen::VectorXd equality_polytope::get_full_coordinates(
 // HACK: Not supported yet because the change of bases interacts badly
 // with is_binary (e.g. x_0 = z_0 + z_1 and z_0 is binary but z_1 isn't;
 // then what is x_0?) So just throw an exception.
-std::pair<double, Eigen::VectorXd> equality_polytope::ext_mixed_program(
+std::pair<double, Eigen::VectorXd> equality_polytope::full_poly_mixed_program(
 	const Eigen::VectorXd & c, const std::vector<bool> & is_binary,
 	bool verbose) const {
 
@@ -77,7 +77,7 @@ std::pair<double, Eigen::VectorXd> equality_polytope::ext_mixed_program(
 		not supported!");
 }
 
-std::pair<double, Eigen::VectorXd> equality_polytope::ext_linear_program(
+std::pair<double, Eigen::VectorXd> equality_polytope::full_poly_linear_program(
 	const Eigen::VectorXd & c, 	bool verbose) const {
 
 	update_reduction();
@@ -88,6 +88,8 @@ std::pair<double, Eigen::VectorXd> equality_polytope::ext_linear_program(
 	std::pair<double, Eigen::VectorXd> inner_lp_opt =
 		reduction.reduced.linear_program(c.transpose() * reduction.H,
 			verbose);
+
+	// Transform the optimal coordinates back.
 
 	std::pair<double, Eigen::VectorXd> outer_opt;
 	outer_opt.second = get_full_coordinates(inner_lp_opt.second);

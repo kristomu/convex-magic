@@ -18,7 +18,7 @@ struct equality_reduction {
 // satisfies Cz <= d, Fz = g.
 
 // This is used for sampling from polytopes with equality constraints,
-// since billiard walk does badly under equality constraints.
+// since billiard walk does badly under such constraints.
 
 // As far as is possible, the user only interacts with the "extended" 
 // polytope (the one in terms of z), and the class translates on the fly.
@@ -28,7 +28,7 @@ struct equality_reduction {
 // the reduced polytope through get_A and similar.
 
 class equality_polytope : public polytope {
-	private:
+	protected:
 		mutable equality_reduction reduction;
 		mutable bool reduction_stale;
 
@@ -74,14 +74,14 @@ class equality_polytope : public polytope {
 			reduced_coordinates) const;
 
 		// TODO: Determine how we should transparently expose both the
-		// "extended polytope" (e.g. be able to specify c in terms of all
-		// variables) and the "base polytope" (with equalities folded into
+		// "full polytope" (e.g. be able to specify c in terms of all
+		// variables) and the "reduced polytope" (with equalities folded into
 		// inequalities) at the same time. For now, call everything 
-		// extended ext.
-		virtual std::pair<double, Eigen::VectorXd> ext_mixed_program(
+		// based around the full one full_poly.
+		virtual std::pair<double, Eigen::VectorXd> full_poly_mixed_program(
 			const Eigen::VectorXd & c, const std::vector<bool> & is_binary,
 			bool verbose) const;
 
-		virtual std::pair<double, Eigen::VectorXd> ext_linear_program(
+		virtual std::pair<double, Eigen::VectorXd> full_poly_linear_program(
 			const Eigen::VectorXd & c, 	bool verbose) const;
 };
