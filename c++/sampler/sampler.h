@@ -32,6 +32,7 @@ template<typename T> class billiard_sampler {
 
 	private:
 		T polytope_to_sample;
+		bool output_extended_points;
 		double diameter;
 		ray current_ray;
 
@@ -48,35 +49,55 @@ template<typename T> class billiard_sampler {
 		// recommended, though it may make mixing times slower, because
 		// the MIP takes too long time to solve.
 		void update_properties(bool quick_diameter_bounds) {
-			// TODO? Make this function return a lower bound parameterized
-			// by time we want to spend solving the MIP.
+			if (!polytope_to_sample.is_full_rank()) {
+				throw std::domain_error("billiard_sampler: rank-deficient matrices are unsupported!");
+			}
+
+			// Make this function return a lower bound parameterized
+			// by time we want to spend solving the MIP? tm_lim in
+			// glp_smcp... Eh, seems to work well enough so far.
 			diameter = polytope_distance(quick_diameter_bounds).
 				get_l2_diameter_lb(polytope_to_sample);
 
 			// Set the starting position to the Chebyshev center
 			current_ray.orig = polytope_center().get_center(
 				polytope_to_sample);
+
 		}
 
-	public:
 		ray billiard_walk(const Eigen::VectorXd & initial_point,
 			double tau_distance, int max_reflections, int max_retries);
 
+	public:
 		// Defaults as in the paper, and with max_retries = 100.
 		Eigen::VectorXd billiard_walk();
 
-		void set_polytope(T polytope_in) {
+		// Output_full_points: if true, this returns the full points of a
+		// polytope (e.g. x instead of z for equality_polytope) even though
+		// those are not the kind of points the sampler uses internally.
+		void set_polytope(T polytope_in, bool output_ext_points) {
+			output_extended_points = output_ext_points;
 			polytope_to_sample = polytope_in;
 			update_properties();
 		}
 
-		billiard_sampler(T polytope_in, bool quick_diameter_bounds) :
+		billiard_sampler(T polytope_in, bool output_ext_points,
+			bool quick_diameter_bounds) :
 			polytope_to_sample(polytope_in) {
+
+			output_extended_points = output_ext_points;
 			update_properties(quick_diameter_bounds);
 		}
 
+		billiard_sampler() {}
+
 		Eigen::VectorXd get_current_point() const {
-			return current_ray.orig;
+			if (output_extended_points) {
+				return polytope_to_sample.get_full_coordinates(
+					current_ray.orig);
+			} else {
+				return current_ray.orig;
+			}
 		}
 };
 
@@ -243,5 +264,10 @@ template<typename T> Eigen::VectorXd billiard_sampler<T>::billiard_walk() {
 	current_ray = billiard_walk(current_ray.orig, diameter,
 		10 * polytope_to_sample.get_dimension(), 100);
 
-	return current_ray.orig;
+	if (output_extended_points) {
+		return polytope_to_sample.get_full_coordinates(
+			current_ray.orig);
+	} else {
+		return current_ray.orig;
+	}
 }
