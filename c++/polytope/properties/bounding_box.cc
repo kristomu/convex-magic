@@ -8,26 +8,41 @@ std::pair<Eigen::VectorXd, Eigen::VectorXd> polytope_bounding_box::
 
 	int dimension = poly_in.get_dimension();
 
-	// Solve the LPs min x_1, x_2, x_3... to get the left end of the
-	// box.
+	// To get the bounding box, we need to solve
+	// min x_1, x_2, x_3...
+	// to get the left (lower, etc) end of the box; and
+	// max x_1, x_2, x_3...
+	// to get the left (upper, etc) end of the box.
 
-	Eigen::VectorXd x_min(dimension), x_max(dimension);
-	Eigen::VectorXd objective = Eigen::VectorXd::Zero(dimension);
+	// Construct the c vectors for both of these:
+
 	int i;
+	std::vector<Eigen::VectorXd> objectives;
+	Eigen::VectorXd objective;
 
+	// min
 	for (i = 0; i < dimension; ++i) {
+		objective = Eigen::VectorXd::Zero(dimension);
 		objective(i) = 1;
-		x_min(i) = poly_in.linear_program(objective, false).second(i);
-		objective(i) = 0;
+		objectives.push_back(objective);
 	}
 
-	// Solve the LPs max x_1, x_2, x_3... to get the right end of the
-	// box.
+	// max
+	for (i = 0; i < dimension; ++i) {
+		objective = Eigen::VectorXd::Zero(dimension);
+		objective(i) = -1;
+		objectives.push_back(objective);
+	}
+
+	// Get the optimal points and turn them into two vectors.
+	std::vector<std::pair<double, Eigen::VectorXd> > outcomes =
+		poly_in.linear_program(objectives, false);
+
+	Eigen::VectorXd x_min(dimension), x_max(dimension);
 
 	for (i = 0; i < dimension; ++i) {
-		objective(i) = -1;
-		x_max(i) = poly_in.linear_program(objective, false).second(i);
-		objective(i) = 0;
+		x_min(i) = outcomes[i].second(i);
+		x_max(i) = outcomes[i+dimension].second(i);
 	}
 
 	return std::pair<Eigen::VectorXd, Eigen::VectorXd>(x_min, x_max);

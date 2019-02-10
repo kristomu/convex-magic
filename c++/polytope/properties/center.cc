@@ -83,6 +83,12 @@ std::pair<double, Eigen::VectorXd>
 
 	out.second.conservativeResize(out.second.size()-1);
 
+	if (!poly_in.is_inside(out.second)) {
+		throw std::out_of_range(
+			"polytope_center: Error finding center, possible numerical " 
+			"precision\nproblem. Is your polytope matrix full rank?");
+	}
+
 	return out;
 }
 

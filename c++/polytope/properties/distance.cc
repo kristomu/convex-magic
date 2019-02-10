@@ -115,6 +115,7 @@ diameter_coords polytope_distance::get_extreme_coords(
 	diam_b.block(4*n+m, 0, m, 1) = poly_in.get_b();
 
 	// minimize -(abs_1 + ... + abs_n)
+	diam_c = Eigen::VectorXd::Zero(prog_cols);
 	diam_c.block(2*n, 0, n, 1) = Eigen::MatrixXd::Constant(n, 1, -1);
 
 	// ind_abs are all binary
@@ -126,9 +127,6 @@ diameter_coords polytope_distance::get_extreme_coords(
 	// be verbose. (TODO: Change this later, once I've got the IP to be
 	// faster, if that's doable).
 	std::pair<double, Eigen::VectorXd> output;
-
-	// Also TODO: Find out why integer programming triggers when we run
-	// linear_program() on this particular problem.
 
 	if (linear_relaxation) {
 		 output = diameter_prog_polytope.linear_program(diam_c, false);
@@ -208,7 +206,7 @@ double polytope_distance::get_l2_diameter_lb(
 	return get_l2_diameter_lb(poly_in, M_vec);
 }
 
-#ifdef TEST
+#ifdef TEST_DIST
 
 int main() {
 	int dimension = 2;
