@@ -12,9 +12,9 @@ class simplex : public polytope {
 	public:
 		const Eigen::MatrixXd & get_A() const { return A; }
 		const Eigen::VectorXd & get_b() const { return b; }
-	
+
 		void set_simplex(int dimension) {
-			A = Eigen::MatrixXd(dimension+1, dimension);
+			A = Eigen::MatrixXd::Zero(dimension+1, dimension);
 			b = Eigen::VectorXd(dimension+1);
 			int i;
 
