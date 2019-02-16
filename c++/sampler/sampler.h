@@ -59,6 +59,11 @@ template<typename T> class billiard_sampler {
 			diameter = polytope_distance(quick_diameter_bounds).
 				get_l2_diameter_lb(polytope_to_sample);
 
+			if (diameter == 0) {
+				throw std::logic_error("billiard_sampler: LP diameter "
+					"approximation is 0!");
+			}
+
 			// Set the starting position to the Chebyshev center
 			current_ray.orig = polytope_center().get_center(
 				polytope_to_sample);
